@@ -2,11 +2,11 @@ name: JioTV 24/7 Automatic Server
 
 on:
   schedule:
-    - cron: '0 */2 * * *' # हर 2 घंटे में अपने आप चलेगा
+    - cron: '0 */2 * * *' # ਹਰ 2 ਘੰਟੇ ਵਿੱਚ ਆਪਣੇ ਆਪ ਚੱਲੇਗਾ
   workflow_dispatch:
     inputs:
       Enter_your_OTP:
-        description: 'आपके फ़ोन पर आया हुआ OTP यहाँ भरें (पहली बार इसे खाली छोड़ दें)'
+        description: 'आपके WhatsApp पर आया हुआ OTP यहाँ भरें (पहली बार इसे खाली छोड़ दें)'
         required: false
         default: ''
 
@@ -30,16 +30,17 @@ jobs:
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           
           if [ -z "${{ github.event.inputs.Enter_your_OTP }}" ]; then
-            echo "=== 📥 OTP भेजा जा रहा है ==="
-            ./jiotv_go login otp --phone "6284293467" || true
+            echo "=== 📥 WhatsApp પર OTP भेजा जा रहा है ==="
+            # '2' ਨੰਬਰ ਦਬਾਉਣ ਨਾਲ WhatsApp ਆਪਸ਼ਨ ਚੁਣਿਆ ਜਾਵੇਗਾ
+            printf "6284293467\n2\n" | ./jiotv_go login otp || true
             echo "======================================"
-            echo "👉 आपके फ़ोन पर OTP भेज दिया गया है।"
-            echo "👉 अब दोबारा Run Workflow पर क्लिक करें और Enter your OTP वाले बॉक्स में उसे भरें!"
+            echo "👉 ਵੀਰ ਹੁਣ ਆਪਣਾ WhatsApp ਚੈੱਕ ਕਰੋ, ਜਿਓ ਵੱਲੋਂ OTP ਆ ਗਿਆ ਹੋਵੇਗਾ!"
+            echo "👉 ਹੁਣ ਦੁਬਾਰਾ Run Workflow ਤੇ ਕਲਿੱਕ ਕਰੋ ਅਤੇ Enter your OTP ਵਾਲੇ ਡੱਬੇ ਵਿੱਚ ਉਹਨੂੰ ਭਰੋ।"
           else
             echo "=== 🔑 लॉगिन वेरिफाई किया जा रहा है ==="
-            ./jiotv_go login otp --phone "6284293467" --otp "${{ github.event.inputs.Enter_your_OTP }}"
+            printf "6284293467\n${{ github.event.inputs.Enter_your_OTP }}\n" | ./jiotv_go login otp
             
-            echo "=== 💾 आपका नया टोकन नीचे है, इसे कॉपी करें ==="
+            echo "=== 💾 आपका नया टोकन नीचे है, इसे稳 कॉपी करें ==="
             cat ~/.jiotv_go/store_v4.toml
           fi
           
