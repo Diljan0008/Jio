@@ -1,8 +1,8 @@
-name: JioTV 24/7 Automatic Server
+name: JioTV 24/7 VPN Bypass Server
 
 on:
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '0 */2 * * *' # ਹਰ 2 ਘੰਟੇ ਬਾਅਦ ਆਟੋਮੈਟਿਕ ਚੱਲੇਗਾ
   workflow_dispatch:
 
 jobs:
@@ -15,17 +15,27 @@ jobs:
     - name: Checkout Code
       uses: actions/checkout@v4
 
-    - name: Install JioTV Go
+    - name: Install VPN and Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y openvpn mtr curl
+        
+    - name: Fetch Free VPN Config & Connect
+      run: |
+        # 🌐 ਫ੍ਰੀ ਅਤੇ ਸੁਰੱਖਿਅਤ VPN ਕਨੈਕਟ ਕਰਨਾ ਤਾਂ ਜੋ Jio IP ਬਲੌਕ ਨਾ ਕਰ ਸਕੇ
+        curl -s -o vpn_config.ovpn https://raw.githubusercontent.com/wuddz-devs/openvpn-configs/master/free/us.ovpn
+        sudo openvpn --config vpn_config.ovpn &
+        echo "=== ⏳ VPN ਕਨੈਕਟ ਹੋਣ ਦੀ ਉਡੀਕ ਕੀਤੀ ਜਾ ਰਹੀ ਹੈ ==="
+        sleep 15
+
+    - name: Install and Run JioTV Go
       run: |
         curl -L -o jiotv_go https://github.com/JioTV-Go/jiotv_go/releases/latest/download/jiotv_go-linux-amd64
         chmod +x jiotv_go
-
-    - name: Run Server with Safe Token Handling
-      run: |
-        echo "=== 🔄 ਸਰਵਰ ਸੈੱਟਅੱਪ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ ==="
+        
         mkdir -p ~/.jiotv_go
         
-        # 🔒 ਟੋਕਨ ਨੂੰ ਬਿਨਾਂ ਖਰਾਬ ਕੀਤੇ ਸੁਰੱਖਿਅਤ ਤਰੀਕੇ ਨਾਲ ਫਾਈਲ ਵਿੱਚ ਲਿਖਣਾ
+        # 🔒 ਤੁਹਾਡੇ ਸੁਰੱਖਿਅਤ ਟੋਕਨ ਨੂੰ ਫਾਈਲ ਵਿੱਚ ਲਿਖਣਾ
         cat << 'EOF' > ~/.jiotv_go/config.toml
         ${{ secrets.JIOTV_CREDENTIALS }}
         EOF
@@ -34,19 +44,18 @@ jobs:
         ${{ secrets.JIOTV_CREDENTIALS }}
         EOF
         
-        # ਸਰਵਰ ਸਟਾਰਟ ਕਰਨਾ
-        ./jiotv_go serve --public &
+        # ਬੈਕਗ੍ਰਾਊਂਡ ਵਿੱਚ ਜਿਓ ਸਰਵਰ ਸਟਾਰਟ ਕਰਨਾ
+        ./jiotv_go serve &
         sleep 20
         
-        # ਪਲੇਲਿਸਟ ਅਤੇ ਈਪੀਜੀ ਡਾਊਨਲੋਡ ਕਰਨੀ (Phone User-Agent ਦੇ ਨਾਲ)
-        curl -s -A "JioTV/3.2.5 (Linux; Android 11)" http://localhost:5001/playlist.m3u > raw_playlist.m3u
-        curl -s -A "JioTV/3.2.5 (Linux; Android 11)" http://localhost:5001/epg.xml > epg.xml
+        # 👑 VPN ਦੇ ਰਾਹੀਂ ਸੁਰੱਖਿਅਤ ਤਰੀਕੇ ਨਾਲ ਪਲੇਲਿਸਟ ਖਿੱਚਣਾ
+        curl -s http://localhost:5001/playlist.m3u > raw_playlist.m3u
+        curl -s http://localhost:5001/epg.xml > epg.xml
         
-        # ਲਿੰਕਸ ਨੂੰ ਪਬਲਿਕ ਸਰਵਰ ਨਾਲ ਬਦਲਣਾ
+        # ਲਿੰਕਸ ਨੂੰ ਸਿੱਧਾ ਪਬਲیک ਸਟ੍ਰੀਮ ਹੋਸਟ ਨਾਲ ਰੀਡਾਇਰੈਕਟ ਕਰਨਾ
         sed 's|http://localhost:5001|https://jiotvgo.strem.ovh|g' raw_playlist.m3u > playlist.m3u
         rm raw_playlist.m3u
-        
-        echo "=== ✔️ ਪਲੇਲਿਸਟ ਬਿਨਾਂ ਕਿਸੇ ਏਰਰ ਦੇ ਤਿਆਰ ਹੈ ==="
+        echo "=== ✔️ ਬਾਈਪਾਸ ਪਲੇਲਿਸਟ ਆਟੋਮੈਟਿਕ ਤਿਆਰ ਹੈ ==="
 
     - name: Deploy Static Files to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@v4
