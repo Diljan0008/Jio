@@ -2,8 +2,8 @@ name: JioTV 24/7 Automatic Server
 
 on:
   schedule:
-    - cron: '0 */2 * * *' # ਹਰ 2 ਘੰਟੇ ਬਾਅਦ ਆਪਣੇ ਆਪ ਚੱਲੇਗਾ
-  workflow_dispatch: # ਬਟਨ ਦਬਾ ਕੇ ਚਲਾਉਣ ਲਈ
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
 
 jobs:
   run-jiotv:
@@ -21,16 +21,20 @@ jobs:
         chmod +x jiotv_go
 
     - name: Run Auto-Server & Fetch Playlist
+      env:
+        JIOTV_CONFIG: ${{ secrets.JIOTV_CREDENTIALS }}
       run: |
         echo "=== 🔄 ਸਰਵਰ ਸਟਾਰਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ ==="
         mkdir -p ~/.jiotv_go
-        echo "${{ secrets.JIOTV_CREDENTIALS }}" > ~/.jiotv_go/store_v4.toml
         
-        # ਸਰਵਰ ਨੂੰ ਬੈਕਗ੍ਰਾਊਂਡ ਵਿੱਚ ਚਲਾਓ
+        # ਸਟਾਰਸ (***) ਵਾਲੇ ਬੱਗ ਨੂੰ ਬਾਈਪਾਸ ਕਰਨ ਲਈ ਸਿੱਧਾ ਇਨਵਾਇਰਨਮੈਂਟ ਵੇਰੀਏਬਲ ਤੋਂ ਫਾਈਲ ਬਣਾਓ
+        cat << 'EOF' > ~/.jiotv_go/store_v4.toml
+        ${{ secrets.JIOTV_CREDENTIALS }}
+        EOF
+        
         ./jiotv_go serve &
         sleep 20
         
-        # ਪਲੇਲਿਸਟ ਅਤੇ ਈਪੀਜੀ ਫਾਈਲਾਂ ਡਾਊਨਲੋਡ ਕਰੋ
         curl -s http://localhost:5001/playlist.m3u > playlist.m3u
         curl -s http://localhost:5001/epg.xml > epg.xml
         echo "=== ✔️ ਪਲੇਲਿਸਟ ਅਤੇ EPG ਸਫਲਤਾਪੂਰਵਕ ਅਪਡੇਟ ਹੋ ਗਏ ਨੇ ==="
