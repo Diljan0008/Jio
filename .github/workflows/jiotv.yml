@@ -5,8 +5,16 @@ on:
     - cron: '0 */2 * * *' # ਹਰ 2 ਘੰਟੇ ਵਿੱਚ ਆਪਣੇ ਆਪ ਚੱਲੇਗਾ
   workflow_dispatch:
     inputs:
+      Action_Type:
+        description: 'ਤੁਸੀਂ ਕੀ ਕਰਨਾ ਚਾਹੁੰਦੇ ਹੋ?'
+        required: true
+        default: '1_Request_OTP'
+        type: choice
+        options:
+          - '1_Request_OTP'
+          - '2_Submit_OTP'
       Enter_your_OTP:
-        description: 'आपके WhatsApp पर आया हुआ OTP यहाँ भरें (पहली बार इसे खाली छोड़ दें)'
+        description: 'ਸਿਰਫ਼ 2_Submit_OTP ਵੇਲੇ ਇੱਥੇ OTP ਭਰੋ (ਪਹਿਲੀ ਵਾਰ ਖਾਲੀ ਛੱਡੋ)'
         required: false
         default: ''
 
@@ -29,23 +37,26 @@ jobs:
       run: |
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
           
-          if [ -z "${{ github.event.inputs.Enter_your_OTP }}" ]; then
-            echo "=== 📥 WhatsApp પર OTP भेजा जा रहा है ==="
-            # '2' ਨੰਬਰ ਦਬਾਉਣ ਨਾਲ WhatsApp ਆਪਸ਼ਨ ਚੁਣਿਆ ਜਾਵੇਗਾ
+          # ਸਟੈਪ 1: ਜੇਕਰ ਤੁਸੀਂ ਸਿਰਫ਼ OTP ਮੰਗਵਾਉਣਾ ਹੈ
+          if [ "${{ github.event.inputs.Action_Type }}" = "1_Request_OTP" ]; then
+            echo "=== 📥 WhatsApp ਤੇ OTP ਭੇਜਿਆ ਜਾ ਰਿਹਾ ਹੈ ==="
             printf "6284293467\n2\n" | ./jiotv_go login otp || true
             echo "======================================"
-            echo "👉 ਵੀਰ ਹੁਣ ਆਪਣਾ WhatsApp ਚੈੱਕ ਕਰੋ, ਜਿਓ ਵੱਲੋਂ OTP ਆ ਗਿਆ ਹੋਵੇਗਾ!"
-            echo "👉 ਹੁਣ ਦੁਬਾਰਾ Run Workflow ਤੇ ਕਲਿੱਕ ਕਰੋ ਅਤੇ Enter your OTP ਵਾਲੇ ਡੱਬੇ ਵਿੱਚ ਉਹਨੂੰ ਭਰੋ।"
-          else
-            echo "=== 🔑 लॉगिन वेरिफाई किया जा रहा है ==="
+            echo "👉 ਆਪਣਾ WhatsApp ਚੈੱਕ ਕਰੋ ਅਤੇ OTP ਨੋਟ ਕਰ ਲਵੋ।"
+            
+          # ਸਟੈਪ 2: ਜਦੋਂ OTP ਆ ਗਿਆ, ਤਾਂ ਇਹ ਹਿੱਸਾ ਚੱਲੇਗਾ
+          elif [ "${{ github.event.inputs.Action_Type }}" = "2_Submit_OTP" ]; then
+            echo "=== 🔑 ਲੌਗਿਨ ਵੈਰੀਫਾਈ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ ==="
+            # ਇਹ ਟ੍ਰਿਕ ਜਿਓ ਨੂੰ ਨਵਾਂ OTP ਭੇਜਣ ਨਹੀਂ ਦੇਵੇਗੀ, ਸਿੱਧਾ ਪੁਰਾਣੇ ਵਾਲੇ ਨੂੰ ਵੈਰੀਫਾਈ ਕਰੇਗੀ
             printf "6284293467\n${{ github.event.inputs.Enter_your_OTP }}\n" | ./jiotv_go login otp
             
-            echo "=== 💾 आपका नया टोकन नीचे है, इसे稳 कॉपी करें ==="
+            echo "=== 💾 ਤੁਹਾਡਾ ਨਵਾਂ ਟੋਕਨ ਕੋਡ ਥੱਲੇ ਹੈ ==="
             cat ~/.jiotv_go/store_v4.toml
+            echo "========================================"
           fi
           
         else
-          echo "=== 🔄 ऑटोमैटिक सर्वर बैकग्राउंड में चल रहा है ==="
+          echo "=== 🔄 ਆਟੋਮੈਟਿਕ ਸਰਵਰ ਬੈਕਗਰਾਊਂਡ ਵਿੱਚ ਚੱਲ ਰਿਹਾ ਹੈ ==="
           mkdir -p ~/.jiotv_go
           echo "${{ secrets.JIOTV_CREDENTIALS }}" > ~/.jiotv_go/store_v4.toml
           
@@ -54,11 +65,11 @@ jobs:
           
           curl -s http://localhost:5001/playlist.m3u > playlist.m3u
           curl -s http://localhost:5001/epg.xml > epg.xml
-          echo "=== ✔️ प्लेलिस्ट अपडेट हो गई है ==="
+          echo "=== ✔️ ਪਲੇਲਿਸਟ ਅਪਡੇਟ ਹੋ ਗਈ ਹੈ ==="
         fi
 
     - name: Deploy Static Files to GitHub Pages
-      if: ${{ github.event.inputs.Enter_your_OTP == '' && github.event_name == 'schedule' }}
+      if: ${{ github.event_name == 'schedule' }}
       uses: JamesIves/github-pages-deploy-action@v4
       with:
         folder: .
