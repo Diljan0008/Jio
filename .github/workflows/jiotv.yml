@@ -21,23 +21,18 @@ jobs:
         chmod +x jiotv_go
 
     - name: Run Auto-Server & Fetch Playlist
-      env:
-        JIOTV_CONFIG: ${{ secrets.JIOTV_CREDENTIALS }}
       run: |
         echo "=== 🔄 ਸਰਵਰ ਸਟਾਰਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ ==="
         mkdir -p ~/.jiotv_go
-        
-        # ਸਟਾਰਸ (***) ਵਾਲੇ ਬੱਗ ਨੂੰ ਬਾਈਪਾਸ ਕਰਨ ਲਈ ਸਿੱਧਾ ਇਨਵਾਇਰਨਮੈਂਟ ਵੇਰੀਏਬਲ ਤੋਂ ਫਾਈਲ ਬਣਾਓ
-        cat << 'EOF' > ~/.jiotv_go/store_v4.toml
-        ${{ secrets.JIOTV_CREDENTIALS }}
-        EOF
+        echo "${{ secrets.JIOTV_CREDENTIALS }}" > ~/.jiotv_go/store_v4.toml
         
         ./jiotv_go serve &
         sleep 20
         
-        curl -s http://localhost:5001/playlist.m3u > playlist.m3u
+        # ਪਲੇਲਿਸਟ ਡਾਊਨਲੋਡ ਕਰੋ ਅਤੇ ਲੋਕਲਹੋਸਟ (localhost) ਨੂੰ ਜਿਓ ਦੇ ਲਾਈਵ ਸਟ੍ਰੀਮ ਲਿੰਕਸ ਨਾਲ ਬਦਲੋ
+        curl -s http://localhost:5001/playlist.m3u | sed 's|http://localhost:5001|https://jiotvgo.strem.ovh|g' > playlist.m3u
         curl -s http://localhost:5001/epg.xml > epg.xml
-        echo "=== ✔️ ਪਲੇਲਿਸਟ ਅਤੇ EPG ਸਫਲਤਾਪੂਰਵਕ ਅਪਡੇਟ ਹੋ ਗਏ ਨੇ ==="
+        echo "=== ✔️ ਪਲੇਲਿਸਟ ਫਿਕਸ ਹੋ ਕੇ ਅਪਡੇਟ ਹੋ ਗਈ ਹੈ ==="
 
     - name: Deploy Static Files to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@v4
