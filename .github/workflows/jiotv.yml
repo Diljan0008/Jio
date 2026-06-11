@@ -20,20 +20,26 @@ jobs:
         curl -L -o jiotv_go https://github.com/JioTV-Go/jiotv_go/releases/latest/download/jiotv_go-linux-amd64
         chmod +x jiotv_go
 
-    - name: Run Auto-Server & Fetch Playlist
+    - name: Run Server with Phone Spoofing
       run: |
-        echo "=== 🔄 ਸਰਵਰ ਸਟਾਰਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ ==="
+        echo "=== 🔄 ਜਿਓ ਸਰਵਰ ਨੂੰ ਚਕਮਾ ਦੇ ਕੇ ਸਟਾਰਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ ==="
         mkdir -p ~/.jiotv_go
-        # ਇੱਥੇ ਆਪਾਂ ਫਾਈਲ ਦਾ ਨਾਮ config.toml ਕਰ ਦਿੱਤਾ ਹੈ ਜੋ ਨਵੇਂ ਵਰਜ਼ਨ ਲਈ ਸਹੀ ਹੈ
         echo "${{ secrets.JIOTV_CREDENTIALS }}" > ~/.jiotv_go/config.toml
+        echo "${{ secrets.JIOTV_CREDENTIALS }}" > ~/.jiotv_go/store_v4.toml
         
-        ./jiotv_go serve &
+        # ਸਰਵਰ ਨੂੰ ਪਬਲਿਕ ਅਤੇ ਬਾਈਪਾਸ ਮੋਡ ਵਿੱਚ ਚਲਾਉਣਾ
+        ./jiotv_go serve --public &
         sleep 20
         
-        # ਪਲੇਲਿਸਟ ਫਿਕਸ ਕਰਨਾ
-        curl -s http://localhost:5001/playlist.m3u | sed 's|http://localhost:5001|https://jiotvgo.strem.ovh|g' > playlist.m3u
-        curl -s http://localhost:5001/epg.xml > epg.xml
-        echo "=== ✔️ ਪਲੇਲਿਸਟ ਅਪਡੇਟ ਹੋ ਗਈ ਹੈ ==="
+        # ਫ਼ੋਨ ਦਾ ਭੇਸ ਬਣਾ ਕੇ (User-Agent ਲਗਾ ਕੇ) ਪਲੇਲਿਸਟ ਖਿੱਚਣੀ
+        curl -s -A "JioTV/3.2.5 (Linux; Android 11)" http://localhost:5001/playlist.m3u > raw_playlist.m3u
+        curl -s -A "JioTV/3.2.5 (Linux; Android 11)" http://localhost:5001/epg.xml > epg.xml
+        
+        # ਲੋਕਲਹੋਸਟ ਦੇ ਲਿੰਕਾਂ ਨੂੰ ਪਬਲਿਕ ਕਲਾਊਡ ਲਿੰਕਸ ਵਿੱਚ ਬਦਲਣਾ
+        sed 's|http://localhost:5001|https://jiotvgo.strem.ovh|g' raw_playlist.m3u > playlist.m3u
+        rm raw_playlist.m3u
+        
+        echo "=== ✔️ ਜਿਓ ਨੂੰ ਪਤਾ ਲੱਗੇ ਬਿਨਾਂ ਪਲੇਲਿਸਟ ਤਿਆਰ ਹੈ ==="
 
     - name: Deploy Static Files to GitHub Pages
       uses: JamesIves/github-pages-deploy-action@v4
