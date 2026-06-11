@@ -1,11 +1,16 @@
-name: JioTV Live Debug Login
+name: JioTV 24/7 Automatic Server
 
 on:
-  workflow_dispatch:
+  schedule:
+    - cron: '0 */2 * * *' # ਹਰ 2 ਘੰਟੇ ਬਾਅਦ ਆਪਣੇ ਆਪ ਚੱਲੇਗਾ
+  workflow_dispatch: # ਬਟਨ ਦਬਾ ਕੇ ਚਲਾਉਣ ਲਈ
 
 jobs:
-  debug-login:
+  run-jiotv:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -15,5 +20,24 @@ jobs:
         curl -L -o jiotv_go https://github.com/JioTV-Go/jiotv_go/releases/latest/download/jiotv_go-linux-amd64
         chmod +x jiotv_go
 
-    - name: Setup Live Terminal
-      uses: mxschmitt/action-tmate@v3
+    - name: Run Auto-Server & Fetch Playlist
+      run: |
+        echo "=== 🔄 ਸਰਵਰ ਸਟਾਰਟ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ ==="
+        mkdir -p ~/.jiotv_go
+        echo "${{ secrets.JIOTV_CREDENTIALS }}" > ~/.jiotv_go/store_v4.toml
+        
+        # ਸਰਵਰ ਨੂੰ ਬੈਕਗ੍ਰਾਊਂਡ ਵਿੱਚ ਚਲਾਓ
+        ./jiotv_go serve &
+        sleep 20
+        
+        # ਪਲੇਲਿਸਟ ਅਤੇ ਈਪੀਜੀ ਫਾਈਲਾਂ ਡਾਊਨਲੋਡ ਕਰੋ
+        curl -s http://localhost:5001/playlist.m3u > playlist.m3u
+        curl -s http://localhost:5001/epg.xml > epg.xml
+        echo "=== ✔️ ਪਲੇਲਿਸਟ ਅਤੇ EPG ਸਫਲਤਾਪੂਰਵਕ ਅਪਡੇਟ ਹੋ ਗਏ ਨੇ ==="
+
+    - name: Deploy Static Files to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        folder: .
+        branch: gh-pages
+        target-folder: .
