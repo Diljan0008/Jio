@@ -1,9 +1,14 @@
-name: JioTV Go 24/7 Server
+name: JioTV 24/7 Automatic Server
 
 on:
   schedule:
-    - cron: '0 */2 * * *' # ਹਰ 2 ਘੰਟੇ ਬਾਅਦ ਆਟੋ-ਰਿਫ੍ਰੈਸ਼
-  workflow_dispatch: # ਮੈਨੂਅਲ ਸਟਾਰਟ ਕਰਨ ਲਈ
+    - cron: '0 */2 * * *' # हर 2 घंटे में अपने आप चलेगा
+  workflow_dispatch:
+    inputs:
+      Enter_your_OTP:
+        description: 'आपके फ़ोन पर आया हुआ OTP यहाँ भरें (पहली बार इसे खाली छोड़ दें)'
+        required: false
+        default: ''
 
 jobs:
   run-jiotv:
@@ -20,37 +25,39 @@ jobs:
         curl -L -o jiotv_go https://github.com/JioTV-Go/jiotv_go/releases/latest/download/jiotv_go-linux-amd64
         chmod +x jiotv_go
 
-    - name: Restore JioTV Login Credentials
-      env:
-        CREDENTIALS_DATA: ${{ secrets.JIOTV_CREDENTIALS }}
+    - name: Handle Login or Run Auto-Server
       run: |
-        # ਪਹਿਲਾਂ ਫੋਲਡਰ ਬਣਾਓ
-        mkdir -p ~/.jiotv_go
-        
-        # ਫਾਈਲ ਨੂੰ ਸਹੀ ਫਾਰਮੈਟ ਵਿੱਚ ਸੇਵ ਕਰੋ
-        cat << 'EOF' > ~/.jiotv_go/store_v4.toml
-        ${{ secrets.JIOTV_CREDENTIALS }}
-        EOF
-        
-        # ਚੈੱਕ ਕਰੋ ਕਿ ਫਾਈਲ ਖਾਲੀ ਤਾਂ ਨਹੀਂ ਰਹਿ ਗਈ
-        if [ ! -s ~/.jiotv_go/store_v4.toml ]; then
-          echo "Error: Credentials file is empty!"
-          exit 1
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          
+          if [ -z "${{ github.event.inputs.Enter_your_OTP }}" ]; then
+            echo "=== 📥 OTP भेजा जा रहा है ==="
+            ./jiotv_go login otp --phone "6284293467" || true
+            echo "======================================"
+            echo "👉 आपके फ़ोन पर OTP भेज दिया गया है।"
+            echo "👉 अब दोबारा Run Workflow पर क्लिक करें और Enter your OTP वाले बॉक्स में उसे भरें!"
+          else
+            echo "=== 🔑 लॉगिन वेरिफाई किया जा रहा है ==="
+            ./jiotv_go login otp --phone "6284293467" --otp "${{ github.event.inputs.Enter_your_OTP }}"
+            
+            echo "=== 💾 आपका नया टोकन नीचे है, इसे कॉपी करें ==="
+            cat ~/.jiotv_go/store_v4.toml
+          fi
+          
+        else
+          echo "=== 🔄 ऑटोमैटिक सर्वर बैकग्राउंड में चल रहा है ==="
+          mkdir -p ~/.jiotv_go
+          echo "${{ secrets.JIOTV_CREDENTIALS }}" > ~/.jiotv_go/store_v4.toml
+          
+          ./jiotv_go serve &
+          sleep 20
+          
+          curl -s http://localhost:5001/playlist.m3u > playlist.m3u
+          curl -s http://localhost:5001/epg.xml > epg.xml
+          echo "=== ✔️ प्लेलिस्ट अपडेट हो गई है ==="
         fi
 
-    - name: Run Server & Generate Static Files
-      run: |
-        # ਸਰਵਰ ਨੂੰ ਚਲਾਓ
-        ./jiotv_go serve &
-        
-        # ਸਰਵਰ ਨੂੰ ਸਟਾਰਟ ਹੋਣ ਲਈ 20 ਸੈਕਿੰਡ ਦਾ ਟਾਈਮ ਦਿਓ
-        sleep 20
-        
-        # ਚੈਨਲ ਲਿਸਟ ਡਾਊਨਲੋਡ ਕਰੋ
-        curl -s http://localhost:5000/playlist.m3u > playlist.m3u
-        curl -s http://localhost:5000/epg.xml > epg.xml
-
     - name: Deploy Static Files to GitHub Pages
+      if: ${{ github.event.inputs.Enter_your_OTP == '' && github.event_name == 'schedule' }}
       uses: JamesIves/github-pages-deploy-action@v4
       with:
         folder: .
