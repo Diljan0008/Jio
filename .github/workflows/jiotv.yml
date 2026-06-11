@@ -2,8 +2,8 @@ name: JioTV Go 24/7 Server
 
 on:
   schedule:
-    - cron: '0 */2 * * *' # ਹਰ 2 ਘੰਟੇ ਬਾਅਦ ਆਟੋਮੈਟਿਕ ਰਿਫ੍ਰੈਸ਼ ਹੋਵੇਗਾ
-  workflow_dispatch: # ਮੈਨੂਅਲੀ ਸਟਾਰਟ ਕਰਨ ਲਈ
+    - cron: '0 */2 * * *' # ਹਰ 2 ਘੰਟੇ ਬਾਅਦ ਆਟੋ-ਰਿਫ੍ਰੈਸ਼
+  workflow_dispatch: # ਮੈਨੂਅਲ ਸਟਾਰਟ ਕਰਨ ਲਈ
 
 jobs:
   run-jiotv:
@@ -24,13 +24,29 @@ jobs:
       env:
         CREDENTIALS_DATA: ${{ secrets.JIOTV_CREDENTIALS }}
       run: |
+        # ਪਹਿਲਾਂ ਫੋਲਡਰ ਬਣਾਓ
         mkdir -p ~/.jiotv_go
-        echo "$CREDENTIALS_DATA" > ~/.jiotv_go/store_v4.toml
+        
+        # ਫਾਈਲ ਨੂੰ ਸਹੀ ਫਾਰਮੈਟ ਵਿੱਚ ਸੇਵ ਕਰੋ
+        cat << 'EOF' > ~/.jiotv_go/store_v4.toml
+        ${{ secrets.JIOTV_CREDENTIALS }}
+        EOF
+        
+        # ਚੈੱਕ ਕਰੋ ਕਿ ਫਾਈਲ ਖਾਲੀ ਤਾਂ ਨਹੀਂ ਰਹਿ ਗਈ
+        if [ ! -s ~/.jiotv_go/store_v4.toml ]; then
+          echo "Error: Credentials file is empty!"
+          exit 1
+        fi
 
     - name: Run Server & Generate Static Files
       run: |
+        # ਸਰਵਰ ਨੂੰ ਚਲਾਓ
         ./jiotv_go serve &
-        sleep 15
+        
+        # ਸਰਵਰ ਨੂੰ ਸਟਾਰਟ ਹੋਣ ਲਈ 20 ਸੈਕਿੰਡ ਦਾ ਟਾਈਮ ਦਿਓ
+        sleep 20
+        
+        # ਚੈਨਲ ਲਿਸਟ ਡਾਊਨਲੋਡ ਕਰੋ
         curl -s http://localhost:5000/playlist.m3u > playlist.m3u
         curl -s http://localhost:5000/epg.xml > epg.xml
 
