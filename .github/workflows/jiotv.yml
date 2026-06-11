@@ -1,0 +1,42 @@
+name: JioTV Go 24/7 Server
+
+on:
+  schedule:
+    - cron: '0 */2 * * *' # ਹਰ 2 ਘੰਟੇ ਬਾਅਦ ਆਟੋਮੈਟਿਕ ਰਿਫ੍ਰੈਸ਼ ਹੋਵੇਗਾ
+  workflow_dispatch: # ਮੈਨੂਅਲੀ ਸਟਾਰਟ ਕਰਨ ਲਈ
+
+jobs:
+  run-jiotv:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Install JioTV Go
+      run: |
+        curl -L -o jiotv_go https://github.com/JioTV-Go/jiotv_go/releases/latest/download/jiotv_go-linux-amd64
+        chmod +x jiotv_go
+
+    - name: Restore JioTV Login Credentials
+      env:
+        CREDENTIALS_DATA: ${{ secrets.JIOTV_CREDENTIALS }}
+      run: |
+        mkdir -p ~/.jiotv_go
+        echo "$CREDENTIALS_DATA" > ~/.jiotv_go/store_v4.toml
+
+    - name: Run Server & Generate Static Files
+      run: |
+        ./jiotv_go serve &
+        sleep 15
+        curl -s http://localhost:5000/playlist.m3u > playlist.m3u
+        curl -s http://localhost:5000/epg.xml > epg.xml
+
+    - name: Deploy Static Files to GitHub Pages
+      uses: JamesIves/github-pages-deploy-action@v4
+      with:
+        folder: .
+        branch: gh-pages
+        target-folder: .
